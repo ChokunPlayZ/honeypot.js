@@ -1,24 +1,22 @@
-require('dotenv').config();
-
 const fs = require('fs');
 const path = require('path');
 const ssh2 = require('ssh2');
 const keygen = require('ssh-keygen');
 const { WebhookClient, EmbedBuilder } = require('discord.js');
 
-const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
-
-const webhookClient = new WebhookClient({ url: webhookUrl });
-
 const isInDocker = fs.existsSync("/.dockerenv");
 
 if (!isInDocker) {
-  config = require("dotenv").config().parsed;
+  rawconfig = require("dotenv").config().parsed;
   mode = "Local";
 } else {
   config = process.env;
   mode = "Docker";
 }
+
+const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
+
+const webhookClient = new WebhookClient({ url: webhookUrl });
 
 const config = {
   port: rawconfig.SSH_PORT || 22,
