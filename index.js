@@ -10,13 +10,21 @@ const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
 
 const webhookClient = new WebhookClient({ url: webhookUrl });
 
-console.log('Starting SSH honeypot...');
+const isInDocker = fs.existsSync("/.dockerenv");
+
+if (!isInDocker) {
+  config = require("dotenv").config().parsed;
+  mode = "Local";
+} else {
+  config = process.env;
+  mode = "Docker";
+}
 
 const config = {
-  port: process.env.SSH_PORT || 22,
-  falsePositiveRatio: process.env.FALSE_POSITIVE_RATIO || 0.01,
-  privateKeyPath: process.env.PRIVATE_KEY_PATH || 'host.key',
-  footer: process.env.HONEYPOT_NAME || 'Honeypot.js',
+  port: rawconfig.SSH_PORT || 22,
+  falsePositiveRatio: rawconfig.FALSE_POSITIVE_RATIO || 0.01,
+  privateKeyPath: rawconfig.PRIVATE_KEY_PATH || 'host.key',
+  footer: rawconfig.HONEYPOT_NAME || 'Honeypot.js',
 };
 
 if (!config.port || !config.falsePositiveRatio || !config.privateKeyPath) {
@@ -40,13 +48,23 @@ if (!fs.existsSync(config.privateKeyPath)) {
     main();
   });
 } else {
+    console.log(`---------------------------`);
+console.log(`Honeypot.js, V1.0`);
+console.log(`https://github.com/ChokunPlayZ/`);
+console.log(`---------------------------`);
+console.log(`Mode: ${mode}`);
+console.log(`In Container: ${isInDocker}`);
+console.log(
+  `System Timzone: ${Intl.DateTimeFormat().resolvedOptions().timeZone}`
+);
+console.log(`-----------Configs---------`);
   main();
 }
 
-function logToDiscord(message) {
+function logToDiscord(data) {
     const embed = new EmbedBuilder()
       .setColor('#0099ff')
-      .setDescription(message)
+      .addFields(data)
       .setTimestamp()
       .setFooter({ text: config.footer });
   
@@ -59,7 +77,10 @@ function main() {
     hostKeys: [fs.readFileSync(config.privateKeyPath)],
   }, function (client, info) {
     console.log(`${info.ip} >>> Connection`);
-    logToDiscord(`[${info.ip}] Connection`);
+    logToDiscord([
+        { name: "Type", value: `Connection Established`, inline: false },
+        { name: "IP", value:`${info.ip}`}
+      ])
 
     client.on('authentication', function (ctx) {
       if (ctx.method === 'password') {
@@ -69,11 +90,19 @@ function main() {
         const falsePositive = Math.random() <= config.falsePositiveRatio;
         if (falsePositive) {
           console.log(`${client._sock.remoteAddress} >> '${ctx.username}' | '${ctx.password}' - ACCEPTED`);
-          logToDiscord(`[${info.ip}] '${ctx.username}' | '${ctx.password}' - ACCEPTED`);
+          logToDiscord([
+            { name: "Type", value: `Authentication Attempt (ACCEPTED)`, inline: false },
+            { name: "IP", value:`${info.ip}`},
+            { name: "Username", value:`${ctx.username}`},{ name: "Password", value:`${ctx.password}`}
+          ])
           ctx.accept();
         } else {
           console.log(`${client._sock.remoteAddress} >> '${ctx.username}' | '${ctx.password}' - REJECTED`);
-          logToDiscord(`[${info.ip}] '${ctx.username}' | '${ctx.password}' - REJECTED`);
+          logToDiscord([
+            { name: "Type", value: `Authentication Attempt (REJECTED)`, inline: false },
+            { name: "IP", value:`${info.ip}`},
+            { name: "Username", value:`${ctx.username}`},{ name: "Password", value:`${ctx.password}`}
+          ])
           return ctx.reject(['password']);
         }
       } else {
@@ -82,6 +111,10 @@ function main() {
     }).on('ready', function () {
       console.log(`${client._sock.remoteAddress} >>> Authenticated (Not really of course :p)`);
       logToDiscord(`[${info.ip}] Authenticated (Not really of course :p)`);
+      logToDiscord([
+        { name: "Type", value: `Authenticated (Not Really Suckers)`, inline: false },
+        { name: "IP", value:`${info.ip}`},
+      ])
 
       client.on('session', function (accept, reject) {
         const session = accept();
@@ -95,12 +128,21 @@ function main() {
       });
     }).on('end', function () {
       console.log(`${client._sock.remoteAddress} >>> Disconnected`);
-      logToDiscord(`[${info.ip}] Disconnected`);
+      logToDiscord([
+        { name: "Type", value: `Disconnected`, inline: false },
+        { name: "IP", value:`${info.ip}`},
+      ])
     }).on('close', function () {
       console.log(`${client._sock.remoteAddress} >>> Connection closed`);
-      logToDiscord(`[${info.ip}] Connection closed`);
+      logToDiscord([
+        { name: "Type", value: `Connection Closed`, inline: false },
+        { name: "IP", value:`${info.ip}`},
+      ])
     }).on('error', () => {});
   }).listen(config.port, '0.0.0.0', function () {
     console.log(`Listening on 0.0.0.0:${this.address().port}`);
+    logToDiscord([
+        { name: "Type", value: `Status: Listening`, inline: false },
+      ])
   });
 }
