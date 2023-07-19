@@ -1,0 +1,5 @@
+.env
+host.key
+host.key.pub
+log.txt
+node_modules/
