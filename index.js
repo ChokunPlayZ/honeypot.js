@@ -6,11 +6,13 @@ const { WebhookClient, EmbedBuilder } = require('discord.js');
 
 const isInDocker = fs.existsSync("/.dockerenv");
 
+let rawconfig
+
 if (!isInDocker) {
   rawconfig = require("dotenv").config().parsed;
   mode = "Local";
 } else {
-  config = process.env;
+  rawconfig = process.env;
   mode = "Docker";
 }
 
